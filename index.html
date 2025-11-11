@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Starstream Demo</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        background: black;
+        overflow: hidden;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="starstream-bg"></canvas>
+
+    <script type="module">
+      import starstream from './src/starstream.js'
+      new starstream('starstream-bg', {
+        baseColor: 'rgb(15, 23, 42)',
+        numStars: 200,
+        minRadius: 0
+      })
+    </script>
+  </body>
+</html>
