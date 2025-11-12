@@ -18,8 +18,9 @@ export default class starstream {
    * @param {string} config.baseColor - Base fill color for canvas (default: '#000').
    * @param {string} config.starColor - Star trail and head color (default: '#fff').
    * @param {number} config.minRadius - Minimum screen radius from center for star spawn (default: 100).
-   * @param {number} config.fadeStartDistance - Distance from camera where star starts visible (default: 1400).
-   * @param {number} config.fullAlphaDistance - Distance from camera where star is fully opaque (default: 300).
+   * @param {number} config.maxRadius - Maximum screen radius from center for star spawn (default: Math.max(width,height)).
+   * @param {number} config.starRadius - Base radius for stars (default: 1).
+   * @param {number} config.trailLength - Number of points in the star trail (default: 4).
    */
   constructor(canvasId, config = {}) {
     this.canvas = document.getElementById(canvasId)
@@ -32,14 +33,10 @@ export default class starstream {
       baseColor = '#000',
       starColor = '#fff',
       minRadius = 100,
-      trailLength = 4,
-      fadeStartDistance = 1400,
-      fullAlphaDistance = 300
+      maxRadius = null,
+      trailLength = 15,
+      starRadius = 1
     } = config
-
-    this.trailLength = trailLength
-    this.fadeStartDistance = fadeStartDistance
-    this.fullAlphaDistance = fullAlphaDistance
 
     this.ctx = this.canvas.getContext('2d')
     this.numStars = numStars
@@ -49,17 +46,15 @@ export default class starstream {
     this.starColor = starColor
     this.minRadius = minRadius
     this.trailLength = trailLength
+    this.starRadius = starRadius
     this.stars = []
 
     // Screen dimensions
     this.width = window.innerWidth
     this.height = window.innerHeight
 
-    // Frame counter for optional future use (e.g., finite remnants)
-    this.frameCounter = 0
-
-    // Convert baseColor to RGBA for trailing alpha only once
-    this.baseFade = this.toRGBA(this.baseColor, 0.225)
+    // Compute maxRadius if not provided
+    this.maxRadius = maxRadius || Math.max(this.width, this.height)
 
     this.initCanvas() // Setup high-DPI canvas and resize handling
     this.initStars() // Generate initial star positions
@@ -98,10 +93,8 @@ export default class starstream {
    * Ensures stars spawn outside the central dead zone.
    */
   initStars() {
-    const maxRadius = Math.max(this.width, this.height)
-
     for (let i = 0; i < this.numStars; i++) {
-      this.stars.push(this.spawnStar(maxRadius))
+      this.stars.push(this.spawnStar(this.maxRadius))
     }
   }
 
@@ -110,25 +103,17 @@ export default class starstream {
    * Handles star movement, perspective projection, trail drawing, and front circle rendering.
    */
   draw = () => {
-    this.frameCounter++
-    this.clearCanvas()
-    for (let s of this.stars) this.updateStar(s)
-    requestAnimationFrame(this.draw)
-  }
-
-  /**
-   * Clears the canvas each frame with partial opacity to create
-   * subtle motion blur / trailing effect.
-   */
-  clearCanvas() {
     const ctx = this.ctx
 
     // Use precomputed RGBA colors for trailing effect
-    ctx.fillStyle = this.baseFade
+    ctx.fillStyle = this.baseColor
     ctx.fillRect(0, 0, this.width, this.height)
 
     ctx.strokeStyle = this.starColor
     ctx.globalAlpha = 1.0
+
+    for (let s of this.stars) this.updateStar(s)
+    requestAnimationFrame(this.draw)
   }
 
   /**
@@ -156,8 +141,8 @@ export default class starstream {
       py = y * k + centerY
     } while (Math.sqrt((px - centerX) ** 2 + (py - centerY) ** 2) < this.minRadius)
 
-    // Return star object with random radius and empty trail
-    return { x, y, z, radius: Math.random() * 1.5 + 0.5, trail: [] }
+    // Use configurable starRadius
+    return { x, y, z, radius: this.starRadius, trail: [] }
   }
 
   /**
@@ -168,13 +153,12 @@ export default class starstream {
   updateStar(s) {
     const centerX = this.width / 2
     const centerY = this.height / 2
-    const maxRadius = Math.max(this.width, this.height)
 
     // Move the star closer to the camera
     s.z -= this.speed
 
     // Respawn when it passes the camera
-    if (s.z < 1) Object.assign(s, this.spawnStar(maxRadius))
+    if (s.z < 1) Object.assign(s, this.spawnStar(this.maxRadius))
 
     // Perspective projection
     const k = 500 / s.z
@@ -184,8 +168,8 @@ export default class starstream {
     // Make head bigger for nearer stars
     const headRadius = Math.max(s.radius * k * 0.5, 1)
 
-    // Calculate alpha based on depth
-    const alpha = this.getStarAlpha(s.z)
+    // Opacity based on size
+    const alpha = Math.min(k / 2, 1)
 
     // Update trail
     this.updateTrail(s, px, py)
@@ -193,25 +177,6 @@ export default class starstream {
     // Draw trail and head
     this.drawTrail(s, headRadius)
     this.drawHead(px, py, headRadius, alpha)
-  }
-
-  /**
-   * Calculates the star's alpha based on its depth (z value).
-   *  - Start very faint and gradually become fully opaque
-   *  - As they approach the camera, alpha is fully opaque.
-   *
-   * @param {number} z - The star's current z position (depth).
-   * @returns {number} alpha - Value between 0 (invisible) and 1 (fully opaque)
-   */
-  getStarAlpha(z) {
-    // Fully visible near the camera
-    if (z <= this.fullAlphaDistance) return 1
-
-    // Invisible when far away
-    if (z >= this.fadeStartDistance) return 0
-
-    // Linear fade between far and near
-    return 1 - (z - this.fullAlphaDistance) / (this.fadeStartDistance - this.fullAlphaDistance)
   }
 
   /**
@@ -274,51 +239,5 @@ export default class starstream {
     ctx.fillStyle = this.starColor
     ctx.fill()
     ctx.globalAlpha = 1.0 // reset
-  }
-
-  /**
-   * Converts any CSS color (hex, named, rgb, rgba) into an rgba string with specified alpha.
-   *
-   * @param {string} color - Input color string.
-   * @param {number} alpha - Alpha value to apply (0–1).
-   * @returns {string} rgba(r,g,b,alpha) string
-   */
-  toRGBA(color, alpha) {
-    // 1. Already rgb/rgba → replace alpha
-    const rgbaMatch = color.match(/rgba?\((\d+), ?(\d+), ?(\d+)(?:, ?([\d.]+))?\)/)
-    if (rgbaMatch) {
-      return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${alpha})`
-    }
-
-    // 2. Hex (#fff or #ffffff)
-    const hexMatch = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
-    if (hexMatch) {
-      let hex = hexMatch[1]
-
-      if (hex.length === 3) {
-        hex = hex
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      }
-
-      const r = parseInt(hex.substring(0, 2), 16)
-      const g = parseInt(hex.substring(2, 4), 16)
-      const b = parseInt(hex.substring(4, 6), 16)
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`
-    }
-
-    // 3. Named colors → canvas fallback
-    const ctx = document.createElement('canvas').getContext('2d')
-    ctx.fillStyle = color
-    const computed = ctx.fillStyle // usually returns rgb(r,g,b)
-    const m = computed.match(/^rgb\((\d+), ?(\d+), ?(\d+)\)$/)
-
-    if (m) {
-      return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`
-    }
-
-    // fallback: return original color
-    return color
   }
 }
