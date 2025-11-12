@@ -5,7 +5,26 @@
   "author": "Jimbo Quijano",
   "license": "MIT",
   "type": "module",
-  "keywords": ["stars", "meteors", "starfield", "cometfield", "canvas", "animation", "javascript"],
+  "keywords": [
+    "stars",
+    "starfield",
+    "3d",
+    "canvas",
+    "animation",
+    "javascript",
+    "tunnel"
+  ],
+  "main": "dist/starstream.umd.js",
+  "module": "dist/starstream.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/starstream.es.js",
+      "require": "./dist/starstream.umd.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -17,7 +36,7 @@
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
-	"jsdom": "^27.0.1",
+    "jsdom": "^27.0.1",
     "prettier": "^3.6.2",
     "sass-embedded": "^1.93.2",
     "vite": "^7.1.7",
