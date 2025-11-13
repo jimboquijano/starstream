@@ -41,5 +41,12 @@
     "sass-embedded": "^1.93.2",
     "vite": "^7.1.7",
     "vitest": "^4.0.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jimboquijano/starstream.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jimboquijano/starstream/issues"
   }
 }
